@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AchoDetect | Analysis Report</title>
+    <style>
+      :root {
+        --rose-cream: #f5e6e8;
+        --lavender-mist: #d5c6e0;
+        --soft-violet: #aaa1c8;
+        --dusty-purple: #967aa1;
+        --midnight-blue: #192a51;
+      }
+      body { margin: 0; font-family: Inter, sans-serif; background: var(--rose-cream); color: var(--midnight-blue); }
+      .wrap { width: min(920px, 92vw); margin: 2.2rem auto; }
+      .card { background: #fff; border-radius: 16px; padding: 1.3rem; border: 1px solid rgba(150,122,161,.25); }
+      .top { display:flex; justify-content:space-between; align-items:center; gap: 0.8rem; }
+      .btn { border:none; background: var(--midnight-blue); color:white; padding:.55rem .9rem; border-radius:10px; cursor:pointer; }
+      .btn.secondary { background: var(--dusty-purple); }
+      .status { font-size:1.2rem; margin:.8rem 0; }
+      .chips { display:flex; gap:.8rem; flex-wrap:wrap; }
+      .chip { background: var(--lavender-mist); padding:.45rem .7rem; border-radius:999px; }
+      .bars { margin-top:1rem; display:grid; gap:1rem; }
+      .bar-row { background: #f8f4fb; border-radius: 12px; padding: .6rem; }
+      .bar-track { width:100%; background:#e9deef; border-radius:999px; overflow:hidden; height:20px; }
+      .bar-fill { height:100%; }
+      .bar-fill.human { background: #3f995f; }
+      .bar-fill.ai { background: #ad4f6d; }
+      .meta { margin-top:1rem; font-size:.95rem; }
+      @media print {
+        .no-print { display: none !important; }
+        body { background: #fff; }
+        .card { border: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card" id="reportCard">
+        <div class="top">
+          <h1>AchoDetect Report</h1>
+          <div class="no-print">
+            <button class="btn secondary" onclick="window.location.href='/'">Back</button>
+            <button class="btn" id="downloadPdfBtn">Download PDF</button>
+          </div>
+        </div>
+
+        <div id="emptyState" class="status">No analysis data found. Please analyze audio from the main page.</div>
+
+        <div id="reportBody" style="display:none;">
+          <p class="status" id="labelText"></p>
+          <div class="chips">
+            <div class="chip" id="fileChip"></div>
+            <div class="chip" id="confidenceChip"></div>
+            <div class="chip" id="engineChip"></div>
+          </div>
+
+          <div class="bars">
+            <div class="bar-row">
+              <strong>Real Voice Probability</strong>
+              <div class="bar-track"><div class="bar-fill human" id="humanBar"></div></div>
+              <div id="humanPct"></div>
+            </div>
+            <div class="bar-row">
+              <strong>AI Voice Probability</strong>
+              <div class="bar-track"><div class="bar-fill ai" id="aiBar"></div></div>
+              <div id="aiPct"></div>
+            </div>
+          </div>
+
+          <div class="meta" id="featureText"></div>
+          <div class="meta" id="rationaleText"></div>
+          <div class="meta" id="noticeText"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const emptyState = document.getElementById('emptyState');
+      const reportBody = document.getElementById('reportBody');
+
+      const raw = sessionStorage.getItem('achodetect_last_result');
+      const fileName = sessionStorage.getItem('achodetect_last_filename') || 'Unknown';
+
+      if (raw) {
+        const data = JSON.parse(raw);
+        const result = data.result || {};
+        const features = data.features || {};
+
+        const authenticity = Number(result.authenticity_score ?? 0) * 100;
+        const synthetic = Number(result.synthetic_score ?? 0) * 100;
+
+        let finalLabel = 'Inconclusive';
+        if ((result.label || '').toLowerCase().includes('human')) finalLabel = 'Real Voice';
+        if ((result.label || '').toLowerCase().includes('synthetic')) finalLabel = 'AI Voice';
+
+        document.getElementById('labelText').textContent = `Final Classification: ${finalLabel}`;
+        document.getElementById('fileChip').textContent = `File: ${fileName}`;
+        document.getElementById('confidenceChip').textContent = `Confidence: ${data.confidence_band || 'N/A'}`;
+        document.getElementById('engineChip').textContent = `Engine: ${data.engine || 'N/A'}`;
+
+        document.getElementById('humanBar').style.width = `${authenticity.toFixed(1)}%`;
+        document.getElementById('aiBar').style.width = `${synthetic.toFixed(1)}%`;
+
+        document.getElementById('humanPct').textContent = `${authenticity.toFixed(1)}%`;
+        document.getElementById('aiPct').textContent = `${synthetic.toFixed(1)}%`;
+
+        document.getElementById('featureText').textContent =
+          `Duration: ${features.duration_seconds ?? 'N/A'}s | Sample Rate: ${features.sample_rate_hz ?? 'N/A'} Hz | Channels: ${features.channels ?? 'N/A'}`;
+
+        document.getElementById('rationaleText').textContent =
+          `Rationale: ${(data.forensic_rationale || []).join(' | ')}`;
+
+        document.getElementById('noticeText').textContent = `Note: ${data.notice || ''}`;
+
+        emptyState.style.display = 'none';
+        reportBody.style.display = 'block';
+      }
+
+      document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+        window.print();
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AchoDetect | Voice Authenticity Detection</title>
+    <style>
+      :root {
+        --rose-cream: #f5e6e8;
+        --lavender-mist: #d5c6e0;
+        --soft-violet: #aaa1c8;
+        --dusty-purple: #967aa1;
+        --midnight-blue: #192a51;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--rose-cream);
+        color: var(--midnight-blue);
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: var(--midnight-blue);
+        color: var(--rose-cream);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 2rem;
+      }
+
+      .brand { font-size: 1.7rem; font-weight: 700; }
+      nav { display: flex; gap: 0.8rem; }
+
+      .nav-btn {
+        border: 1px solid rgba(245, 230, 232, 0.45);
+        background: transparent;
+        color: var(--rose-cream);
+        border-radius: 999px;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+      }
+
+      main { width: min(920px, 92vw); margin: 3rem auto; }
+
+      .hero { text-align: center; }
+      .hero h1 { font-size: clamp(2.4rem, 7vw, 4.4rem); margin: 0; }
+      .hero p { max-width: 700px; margin: 0.8rem auto 2rem; line-height: 1.6; }
+
+      .upload-card {
+        width: min(600px, 100%);
+        margin: 0 auto;
+        border: 4px solid #fff;
+        border-radius: 28px;
+        padding: 2rem;
+        background: linear-gradient(180deg, #f7edf0 0%, #e3d5e8 100%);
+        box-shadow: 0 12px 25px rgba(25, 42, 81, 0.22);
+      }
+
+      .dropzone {
+        display: block;
+        border: 2px dashed rgba(150, 122, 161, 0.45);
+        border-radius: 20px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+      }
+
+      #audioFile { display: none; }
+
+      .controls { margin-top: 1.2rem; display: grid; gap: 0.9rem; justify-items: center; }
+
+      .listen-btn {
+        width: 110px;
+        height: 110px;
+        border: none;
+        border-radius: 50%;
+        background: var(--soft-violet);
+        color: var(--midnight-blue);
+        font-size: 2.2rem;
+        cursor: pointer;
+      }
+
+      .result-box {
+        width: 100%;
+        background: rgba(213, 198, 224, 0.4);
+        border: 1px solid rgba(150, 122, 161, 0.32);
+        border-radius: 14px;
+        padding: 1rem;
+      }
+
+      .api-config {
+        width: 100%;
+        text-align: left;
+        background: rgba(245, 230, 232, 0.8);
+        border: 1px solid rgba(150, 122, 161, 0.28);
+        border-radius: 12px;
+        padding: 0.8rem;
+      }
+
+      .api-config label { font-size: 0.85rem; display: block; margin-bottom: 0.3rem; }
+      .api-config input {
+        width: 100%;
+        border: 1px solid rgba(150, 122, 161, 0.35);
+        border-radius: 8px;
+        padding: 0.45rem 0.55rem;
+      }
+      .api-config small { display:block; margin-top:0.35rem; color: var(--dusty-purple); }
+      .api-actions { margin-top: 0.45rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+      .tiny-btn { border:1px solid rgba(150,122,161,.35); background:#fff; border-radius:8px; padding:0.35rem 0.55rem; cursor:pointer; }
+      .status-pill { font-size:0.8rem; padding:0.22rem 0.5rem; border-radius:999px; }
+      .status-pill.ok { background:#d6f5dd; color:#17622f; }
+      .status-pill.bad { background:#ffdfe3; color:#8a223d; }
+      .status-pill.warn { background:#fff2cc; color:#7a5b00; }
+
+      .about-inline {
+        margin: 1.2rem auto 0;
+        width: min(600px, 100%);
+        text-align: left;
+        background: rgba(213, 198, 224, 0.35);
+        border: 1px solid rgba(150, 122, 161, 0.28);
+        border-radius: 12px;
+        padding: 0.9rem;
+      }
+
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(25, 42, 81, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+
+      .modal.show { display: flex; }
+
+      .modal-card {
+        width: min(760px, 100%);
+        background: #f5edf7;
+        border-radius: 20px;
+        padding: 1.2rem 1.5rem;
+      }
+
+      .modal-head { display: flex; justify-content: space-between; align-items: center; }
+      .close { border: none; background: transparent; font-size: 1.4rem; cursor: pointer; }
+      footer { text-align: center; margin: 2.2rem 0; color: var(--dusty-purple); }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">AchoDetect</div>
+      <nav>
+        <button class="nav-btn" data-modal="aboutModal">About</button>
+        <button class="nav-btn" data-modal="contextModal">Context</button>
+        <button class="nav-btn" data-modal="technologyModal">Technology</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>AchoDetect</h1>
+        <p>
+          Upload a voice sample and run forensic analysis. After clicking Analyze,
+          you will be redirected to a full result page with AI vs Real percentage charts and a downloadable PDF report.
+        </p>
+
+        <div class="upload-card">
+          <label class="dropzone" for="audioFile">
+            <h3>Upload Evidence</h3>
+            <small>Drop, browse, or record audio from phone</small>
+          </label>
+          <input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg" capture="user" />
+
+          <div class="controls">
+            <button class="listen-btn" id="analyzeBtn" aria-label="Analyze voice">🎙</button>
+            <div class="result-box" id="resultBox">
+              Select an audio file (including phone recording/call export) and click Analyze. WAV gives best forensic accuracy.
+            </div>
+
+            <div class="api-config">
+              <label for="apiBaseInput"><strong>Backend API Base URL (required on Netlify):</strong></label>
+              <input id="apiBaseInput" type="text" placeholder="https://your-backend.onrender.com" />
+              <small>Leave empty for local same-domain run. If you see "Failed to fetch", set this to your backend URL.</small>
+              <div class="api-actions">
+                <button type="button" class="tiny-btn" id="testBackendBtn">Test Backend</button>
+                <span id="backendStatus" class="status-pill warn">Backend: unchecked</span>
+              </div>
+            </div>
+          </div>
+
+          <article class="about-inline">
+            <strong>About Voice Detection Project:</strong>
+            AchoDetect analyzes voice evidence, including phone recordings and call exports, to estimate whether speech is real-human or AI-generated using transparent forensic signal features.
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>Made by Hani Patel</footer>
+
+    <section class="modal" id="aboutModal">
+      <article class="modal-card">
+        <div class="modal-head">
+          <h2>About AchoDetect</h2>
+          <button class="close" data-close>&times;</button>
+        </div>
+        <p>
+          AchoDetect is a voice detection project that analyzes uploaded audio to estimate whether a voice sounds human or AI-generated.
+          It combines transparent forensic signal features with an easy web interface for investigation and learning.
+        </p>
+      </article>
+    </section>
+
+    <section class="modal" id="contextModal">
+      <article class="modal-card">
+        <div class="modal-head">
+          <h2>Ethical Usage Framework</h2>
+          <button class="close" data-close>&times;</button>
+        </div>
+        <p>Use this system for investigation support only, with human review.</p>
+      </article>
+    </section>
+
+    <section class="modal" id="technologyModal">
+      <article class="modal-card">
+        <div class="modal-head">
+          <h2>Technology</h2>
+          <button class="close" data-close>&times;</button>
+        </div>
+        <p>Forensic analysis includes spectral and temporal signal cues.</p>
+      </article>
+    </section>
+
+    <script>
+      const modalButtons = document.querySelectorAll('[data-modal]');
+      const closeButtons = document.querySelectorAll('[data-close]');
+      const analyzeBtn = document.getElementById('analyzeBtn');
+      const fileInput = document.getElementById('audioFile');
+      const resultBox = document.getElementById('resultBox');
+      const apiBaseInput = document.getElementById('apiBaseInput');
+      const testBackendBtn = document.getElementById('testBackendBtn');
+      const backendStatus = document.getElementById('backendStatus');
+      let selectedFile = null;
+
+      const params = new URLSearchParams(window.location.search);
+      const apiBaseFromUrl = params.get('apiBase');
+      const apiBaseFromStorage = localStorage.getItem('achodetect_api_base');
+      let apiBase = (apiBaseFromUrl || apiBaseFromStorage || '').replace(/\/$/, '');
+      if (apiBaseFromUrl) localStorage.setItem('achodetect_api_base', apiBase);
+      apiBaseInput.value = apiBase;
+
+      apiBaseInput.addEventListener('change', () => {
+        apiBase = apiBaseInput.value.trim().replace(/\/$/, '');
+        if (apiBase) {
+          localStorage.setItem('achodetect_api_base', apiBase);
+          resultBox.textContent = `Backend set to: ${apiBase}`;
+        } else {
+          localStorage.removeItem('achodetect_api_base');
+          resultBox.textContent = 'Backend URL cleared. Using same-domain /api/detect.';
+        }
+      });
+
+      function detectEndpointCandidates() {
+        const endpoints = [];
+        if (apiBase) endpoints.push(`${apiBase}/api/detect`);
+        endpoints.push('/api/detect');
+        if (!apiBase && window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+          endpoints.push('http://127.0.0.1:8080/api/detect');
+        }
+        return [...new Set(endpoints)];
+      }
+
+      function deploymentWarning() {
+        const isLocal = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+        if (!isLocal && !apiBase) {
+          return 'Set Backend API Base URL above (for example: https://your-backend.onrender.com).';
+        }
+        if (window.location.protocol === 'https:' && apiBase.startsWith('http://')) {
+          return 'Mixed-content blocked: frontend is HTTPS but backend is HTTP. Use an HTTPS backend URL.';
+        }
+        return '';
+      }
+
+      function healthEndpointCandidates() {
+        const endpoints = [];
+        if (apiBase) endpoints.push(`${apiBase}/health`);
+        endpoints.push('/health');
+        if (!apiBase && window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+          endpoints.push('http://127.0.0.1:8080/health');
+        }
+        return [...new Set(endpoints)];
+      }
+
+      async function testBackendConnection() {
+        backendStatus.className = 'status-pill warn';
+        backendStatus.textContent = 'Backend: checking...';
+        for (const endpoint of healthEndpointCandidates()) {
+          try {
+            const res = await fetch(endpoint, { method: 'GET' });
+            if (!res.ok) continue;
+            const data = await res.json();
+            backendStatus.className = 'status-pill ok';
+            backendStatus.textContent = `Backend: connected (${data.engine || 'ok'})`;
+            return true;
+          } catch (_err) {
+          }
+        }
+        backendStatus.className = 'status-pill bad';
+        backendStatus.textContent = 'Backend: unreachable';
+        return false;
+      }
+
+      testBackendBtn.addEventListener('click', testBackendConnection);
+      const bootWarning = deploymentWarning();
+      if (bootWarning) {
+        resultBox.textContent = `Config required: ${bootWarning}`;
+      }
+      testBackendConnection();
+
+
+      modalButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const id = button.getAttribute('data-modal');
+          document.getElementById(id)?.classList.add('show');
+        });
+      });
+
+      closeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          button.closest('.modal')?.classList.remove('show');
+        });
+      });
+
+      document.querySelectorAll('.modal').forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) modal.classList.remove('show');
+        });
+      });
+
+      fileInput.addEventListener('change', (event) => {
+        selectedFile = event.target.files[0] || null;
+        resultBox.textContent = selectedFile
+          ? `Selected: ${selectedFile.name}`
+          : 'Select an audio file (including phone recording/call export) and click Analyze. WAV gives best forensic accuracy.';
+      });
+
+      analyzeBtn.addEventListener('click', async () => {
+        if (!selectedFile) {
+          resultBox.textContent = 'Please select an audio file first.';
+          return;
+        }
+
+        const warn = deploymentWarning();
+        if (warn) {
+          resultBox.textContent = `Analysis blocked: ${warn}`;
+          return;
+        }
+
+        try {
+          analyzeBtn.disabled = true;
+          resultBox.textContent = `Analyzing ${selectedFile.name}...`;
+
+          const formData = new FormData();
+          formData.append('audio', selectedFile);
+
+          let data = null;
+          let lastError = null;
+          let success = false;
+
+          for (const endpoint of detectEndpointCandidates()) {
+            try {
+              const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData,
+              });
+              data = await response.json();
+              if (!response.ok) throw new Error(data.error || 'Detection failed');
+              success = true;
+              break;
+            } catch (err) {
+              lastError = err;
+            }
+          }
+
+          if (!success) throw lastError || new Error('Detection failed');
+
+          sessionStorage.setItem('achodetect_last_result', JSON.stringify(data));
+          sessionStorage.setItem('achodetect_last_filename', selectedFile.name);
+          window.location.href = '/result.html';
+        } catch (error) {
+          if (String(error.message).includes('Failed to fetch')) {
+            resultBox.textContent = `Analysis failed: Cannot reach backend API. Tried: ${detectEndpointCandidates().join(' , ')}. Check /health first with Test Backend. If hosted on HTTPS, backend must also be HTTPS.`; 
+          } else {
+            resultBox.textContent = `Analysis failed: ${error.message}`;
+          }
+        } finally {
+          analyzeBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
